@@ -1,0 +1,43 @@
+  DATA: lv_full_auth   TYPE sap_bool,
+        ls_bukrs_range TYPE trgs_company_code,
+        lt_bukrs_range TYPE trgr_company_code,
+        lt_values      TYPE STANDARD TABLE OF usvalues.
+
+  "-- Get Co-Co against user
+  CALL FUNCTION 'SUSR_USER_AUTH_FOR_OBJ_GET'
+    EXPORTING
+      user_name                     = sy-uname
+      sel_object                    = 'M_TC_BUKRS'
+      optimize                      = abap_true
+      respect_disablemnt_4_auth_chk = abap_true
+    IMPORTING
+      fully_authorized              = lv_full_auth
+    TABLES
+      values                        = lt_values
+    EXCEPTIONS
+      user_name_not_exist           = 1
+      not_authorized                = 2
+      internal_error                = 3
+      OTHERS                        = 4.
+  IF sy-subrc <> 0.
+    "-- Build error message and exit
+    lt_return = zcl_sm_utilities=>build_message( iv_id   = 'ZSM_INT'
+                                               iv_type   = 'E'
+                                               iv_number = '000'
+                                               iv_msgv1  =  text-001 ).
+
+    LOOP AT lt_return ASSIGNING <lf_return>.
+      APPEND INITIAL LINE TO et_messages ASSIGNING <lf_message>.
+      MOVE-CORRESPONDING <lf_return> TO <lf_message>.
+    ENDLOOP.
+    RETURN.
+  ELSE.
+    LOOP AT lt_values INTO DATA(ls_values) WHERE field = 'BUKRS'.
+      DATA(lv_bukrs) = CONV bukrs( ls_values-von ).
+      ls_bukrs_range-sign   = 'I'.
+      ls_bukrs_range-option = 'EQ'.
+      ls_bukrs_range-low    = lv_bukrs.
+      APPEND ls_bukrs_range TO lt_bukrs_range.
+      CLEAR ls_bukrs_range.
+    ENDLOOP.
+  ENDIF.
